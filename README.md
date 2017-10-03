@@ -99,3 +99,199 @@ The LoadBalancer ServiceType will only work if the underlying infrastructure sup
 A Service can be mapped to an ExternalIP address if it can route to one or more of the Worker Nodes. Traffic that is ingressed into the cluster with the ExternalIP (as destination IP) on the Service port, gets routed to one of the the Service endpoints.
 
 ![ExternalIP](https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/2984397951f5545e389e02add2b05634/asset-v1:LinuxFoundationX+LFS158x+2T2017+type@asset+block/service-externalIPupdated.png)
+
+
+## Deploying an application using Minikube GUI
+
+From the Dashboard, click on Deploy a Containerized App, which will open an interface like the one below:
+
+![GUI](https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/706b9e71c3c73cd1a20b021fe8372f49/asset-v1:LinuxFoundationX+LFS158x+2T2017+type@asset+block/deploy2update.png)
+
+We can either provide the application details here, or we can upload a YAML file with our Deployment details. As shown, we are providing the following application details:
+
+* The application name is webserver
+* The Docker image to use is nginx:alpine, where alpine is the image tag
+* The replica count, or the number of Pods, is 3
+* No Service, as we will be creating it later.
+
+If we click on SHOW ADVANCED OPTIONS, we can specify options such as Labels, Environment Variables, etc. By default, the app Label is set to the application name. In our example, an app:webserver Label is set to different objects created by this Deployment.
+
+By clicking on the DEPLOY button, we can trigger the deployment. As expected, the Deployment webserver will create a ReplicaSet (webserver-1529352408), which will eventually create three Pods (webserver-1529352408-xxxx).
+
+#### Check out Deployments, ReplicaSets, and Pods from the CLI
+
+We can also list the Deployments, ReplicaSets, and Pods from the CLI, which we created using the GUI. They will match one-to-one.
+
+
+* *List the deployments*
+
+```
+kubectl get deployments
+```
+
+* *List Replicasets*
+
+```
+kubectl get replicasets
+```
+
+* *List the pods*
+
+```
+kubectl get pods
+```
+
+
+## Exploring Labels and Selectors
+
+Earlier, we have seen that Labels and Selectors play an important role in grouping a subset of objects on which we can perform operations. Next, we will take a closer look at them.
+
+
+#### Look at a Pod's details
+
+We can look at an object's details using kubectl's describe subcommand. In the following example, you can see a Pod's description:
+
+```
+kubectl describe pod webserver-4062734599-18k26
+```
+
+#### List the Pods, along with their attached Labels
+
+With the -L option to the kubectl get pods command, we can add additional columns in the output to list Pods with their attached Labels and their values. In the following example,  we are listing Pods with the Labels app and label2:
+
+```
+kubectl get pods -L app,label2
+```
+
+#### Select the Pods with a given Label
+
+o use a Selector with the kubectl get pods command, we can use the -l option. In the following example, we are selecting all the Pods that have the app Label's value set to webserver:
+
+```
+kubectl get pods -l app=webserver
+```
+
+#### Delete the Deployment we created earlier
+
+We can delete any object using the kubectl delete command. In the following example, we are deleting the webserver Deployment which we created in the previous section using the Dashboard:
+
+```
+kubectl delete deployments webserver
+```
+
+
+#### Deploying the Application Using the CLI II
+
+Using kubectl, we will create the Deployment from the YAML file. With the -f option to the kubectl create command we can pass a YAML file as an object's specification. In the following example, we are creating a webserver Deployment:
+
+```
+kubectl create -f webserver.yaml
+```
+
+## Create a Service and Expose It to the External World with NodePort
+
+```
+kubectl create -f webserver-svc.yaml
+```
+
+List the services
+
+```
+kubectl get services
+```
+
+Our web-service is now created and its ClusterIP is 10.0.0.133. In the PORT(S) section we can see a mapping of 80:32636, which means that we have reserved a static port 32636 on the node. If we connect to the node on that port, our requests will be forwarded to the ClusterIP on port 80.
+
+It is not necessary to create the Deployment first, and the Service after. They can be created in any order. A Service will connect Pods based on the Selector.
+
+To get more details about the Service, we can use the kubectl describe command, like in the following example:
+
+```
+kubectl describe svc web-service
+```
+
+
+## Accessing the Application Using the Exposed NodePort
+
+Our application is running inside the minikube VM. To access the application from our workstation, let's first get the IP address of the minikube VM:
+
+```
+minikube ip
+```
+
+
+Go to http://minikube-ip:the-reserved-port
+
+
+## Volume Types
+
+A directory which is mounted inside a Pod is backed by the underlying Volume Type. A Volume Type decides the properties of the directory, like size, content, etc. Some of the Volume Types are:
+
+* **emptyDir**
+An empty Volume is created for the Pod as soon as it is scheduled on the Worker Node. The Volume's life is tightly coupled with the Pod. If the Pod dies, the content of emptyDir is deleted forever.  
+* **hostPath**
+With the hostPath Volume Type, we can share a directory from the host to the Pod. If the Pod dies, the content of the Volume is still available on the host.
+* **gcePersistentDisk**
+With the gcePersistentDisk Volume Type, we can mount a Google Compute Engine (GCE) persistent disk into a Pod.
+* **awsElasticBlockStore**
+With the awsElasticBlockStore Volume Type, we can mount an AWS EBS Volume into a Pod. 
+* **nfs**
+With nfs, we can mount an NFS share into a Pod.
+* **iscsi**
+With iscsi, we can mount an iSCSI share into a Pod.
+* **secret**
+With the secret Volume Type, we can pass sensitive information, such as passwords, to Pods. We will take a look at an example in a later chapter.
+* **persistentVolumeClaim**
+We can attach a Persistent Volume to a Pod using a persistentVolumeClaim. We will cover this in our next section. 
+
+You can learn more details about Volume Types in the [Kubernetes Documentation](https://kubernetes.io/docs/concepts/storage/volumes/).
+
+## Persistent Volumes
+
+In a typical IT environment, storage is managed by the storage/system administrators. The end user will just get instructions to use the storage, but does not have to worry about the underlying storage management.
+
+In the containerized world, we would like to follow similar rules, but it becomes challenging, given the many Volume Types we have seen earlier. Kubernetes resolves this problem with the Persistent Volume subsystem, which provides APIs for users and administrators to manage and consume storage. To manage the Volume, it uses the PersistentVolume (PV) API resource type, and to consume it, it uses the PersistentVolumeClaim (PVC) API resource type.
+
+A Persistent Volume is a network attached storage in the cluster, which is provisioned by the administrator.
+
+![Persistent Volumes](https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/6a5fdd4a886946de42f45f19053d1a4c/asset-v1:LinuxFoundationX+LFS158x+2T2017+type@asset+block/Persistent_Volume.jpg)
+
+
+Some of the Volume Types that support managing storage using Persistent Volumes are:
+
+* GCEPersistentDisk
+* AWSElasticBlockStore
+* AzureFile
+* NFS
+* iSCSI
+* CephFS
+* Cinder
+
+For a complete list, as well as more details, you can check out the [Kubernetes Documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes).
+
+## Persistent Volume Claims
+
+ PersistentVolumeClaim (PVC) is a request for storage by a user. Users request for Persistent Volume resources based on size, access modes, etc. Once a suitable Persistent Volume is found, it is bound to a Persistent Volume Claim.
+
+![PVC](https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/8a09bc09358d8d677608c412510d2ecb/asset-v1:LinuxFoundationX+LFS158x+2T2017+type@asset+block/Persistent_Volume_Claim_1.jpg)
+
+After a successful bind, the PersistentVolumeClaim resource can be used in a Pod.
+
+![PVC](https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/9002609cfc5f59584c82544a336e21a5/asset-v1:LinuxFoundationX+LFS158x+2T2017+type@asset+block/Persistent_Volume_Claim_used_in_a_Pod__2_.jpg)
+
+Once a user finishes its work, the attached Persistent Volumes can be released. The underlying Persistent Volumes can then be reclaimed and recycled for future usage. 
+
+To learn more, you can check out the [documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
+
+
+## Lab
+
+```
+minikube ssh
+mkdir vol
+cd vol
+echo "Welcome to Kubernetes MOOC" > index.html
+pwd
+kubectl create -f webserver-vol.yaml
+kubectl create -f webserver-svc.yaml
+```
